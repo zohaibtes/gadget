@@ -1,0 +1,1217 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Module>
+    <ModulePrefs title="__MSG_gadget.title__" directory_title="__MSG_gadget.title__" description="__MSG_gadget.description__">
+        <Optional feature="gadget-directory">
+            <Param name="categories"> JIRA
+            </Param>
+        </Optional>
+        <Optional feature="atlassian.util" />
+        <Optional feature="auth-refresh" />
+        <Require feature="views" />
+        <Require feature="settitle" />
+        <Require feature="oauthpopup" /> #oauth
+        <Locale messages="__ATLASSIAN_BASE_URL__/download/resources/jira-gadget-tutorial-plugin/i18n/ALL_ALL.xml" />
+    </ModulePrefs>
+    <Content type="html" view="profile">
+        <!--
+      Author: Zohaib Tesneem
+      Email: zohaib.tesneem@gmail.com
+      Description: Custom JIRA Gadget which extracts data from Gerrit
+      Date: 28/09/2017
+       --> 
+
+        <![CDATA[
+        #requireResource("com.atlassian.jira.gadgets:common")
+        #requireResource("com.atlassian.gadgets.publisher:ajs-gadgets")
+        #includeResources()
+
+        <head>
+          <style type="text/css">
+
+      #btn {
+          color: black;
+          margin-botton: 1595px;
+          margin-top: 10px;
+          margin-left: 13px;
+
+      }
+
+      select {
+          float: right;
+          margin-right: 30px;
+          margin-bottom: 80px;
+      }
+
+      #DivChartContainer {
+          height: 100;
+          width: 100%;
+          position: fixed;
+
+      }
+  </style>
+  <select id="dropdown">
+          <option value=1>Last Day</option>
+          <option value=7>Last 7 Days</option>
+          <option value=14>Last 14 Days</option>
+          <option value=30>Last 30 Days</option>
+        </select>
+
+  <input id="btn" type="button" value="Show Releases" onClick="change()">
+
+
+  <div id="DivChartContainer"></div>
+
+      </head>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.0/Chart.bundle.min.js"></script>
+
+
+      <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+
+      <script src="http://code.jquery.com/jquery-migrate-1.2.1.js"></script>
+      <script src="https://cdn.jsdelivr.net/lodash/4.17.4/lodash.min.js"></script>
+        <script type="text/javascript">
+          //change name of button once clicked.
+      function change() // no ';' here
+      {
+          var elem = document.getElementById("btn");
+          if (elem.value == "Show Releases") elem.value = "Show Combined";
+          else elem.value = "Show Releases";
+      }
+
+      var el = document.getElementById('dropdown');
+
+      // Makes calls to get updated Develop release (Master)
+
+      var  master  =   {
+          "url":   "http://localhost:3000/pages/master/",
+          "method":   "GET"
+      }
+
+      $.ajax(master).done(function(responseMaster) {
+          //console.log(JSON.stringify(responseMaster));
+
+          var masterNumber = responseMaster.slice(3, 6);
+          //alert(masterNumber);
+
+          //  Makes calls to get updated Test release
+          var  test  =   {
+              "url":   "http://localhost:3000/pages/test/",
+              "method":   "GET"
+          }
+
+          $.ajax(test).done(function(responseTest) {
+              //console.log(JSON.stringify(responseTest));
+
+              var testNumber = responseTest.slice(3, 6);
+              //alert(testNumber);
+
+              //  Makes calls to get updated Production release
+              var  production  =   {
+                  "url":   "http://localhost:3000/pages/production/",
+                  "method":   "GET"
+              }
+
+              $.ajax(production).done(function(responseProduction) {
+                  //console.log(JSON.stringify(responseProduction));
+
+                  var productionNumber = responseProduction.slice(3, 6);
+
+                  //  Makes calls to get the group from Gerrit
+                  var  groups  =   {
+                      "dataType": "json",
+                      "url":   "http://localhost:3000/pages/contact",
+                      "method":   "GET"
+                  }
+
+                  $.ajax(groups).done(function(response) {
+                      //console.log(JSON.stringify(response));
+
+                      var accountids = response.map(function(a) {
+                          return a._account_id
+                      });
+                      //console.log(accountids);
+
+                      // Makes calls to get Gerrit changes that are OPEN (i.e unmerged)
+
+                      var  open  =   {
+                          "dataType": "json",
+                          "url":   "http://localhost:3000/pages/about/",
+                          "method":   "GET"
+                      }
+
+                      $.ajax(open).done(function(responsen) {
+
+                          var time1 = responsen.length;
+
+                          var tmpArray3 = [];
+                          var tmpArray4 = [];
+                          var tmpArray5 = [];
+                          var tmpArray6 = [];
+                          var outputArray3 = [];
+                          var outputArray4 = [];
+                          var outputArray5 = [];
+                          var outputArray6 = [];
+
+
+                          for (i = 0; i < responsen.length; i++) {
+                              var currentObject3 = responsen[i];
+
+                              //Showing Open changes based on number of days
+
+                              var objectCreateDate2 = new Date(currentObject3.created);
+
+                              //todays date
+                              var today = new Date();
+
+                              var oneDayAgo = new Date(today);
+                              var sevenDaysAgo = new Date(today);
+                              var fourteenDaysAgo = new Date(today);
+                              var thirtyDaysAgo = new Date(today);
+
+                              //-1 - date from 1 day ago
+                              oneDayAgo.setDate(today.getDate() - 1);
+                              var cutoffdate2 = new Date(oneDayAgo);
+
+                              var objectCreateDate3 = new Date(currentObject3.created);
+
+                              //Showing number of open issues by days
+                              if (objectCreateDate3 >= cutoffdate2) {
+                                  tmpArray3.push(currentObject3);
+                              }
+
+
+                              // Showing Open changes from 7 days ago
+
+                              var objectCreateDate4 = new Date(currentObject3.created);
+
+                              sevenDaysAgo.setDate(today.getDate() - 7);
+                              var cutoffdate3 = new Date(sevenDaysAgo);
+
+                              var objectCreateDate5 = new Date(currentObject3.created);
+
+                              //Showing number of open issues by days
+                              if (objectCreateDate5 >= cutoffdate3) {
+                                  tmpArray4.push(currentObject3);
+                              }
+
+
+                              // Showing Open changes from 14 days ago
+
+                              var objectCreateDate5 = new Date(currentObject3.created);
+
+                              fourteenDaysAgo.setDate(today.getDate() - 14);
+                              var cutoffdate4 = new Date(fourteenDaysAgo);
+
+                              var objectCreateDate6 = new Date(currentObject3.created);
+
+                              //Showing number of open issues by days
+                              if (objectCreateDate6 >= cutoffdate4) {
+                                  tmpArray5.push(currentObject3);
+                              }
+
+
+                              // Showing Open changes from 30 days ago
+
+                              var objectCreateDate6 = new Date(currentObject3.created);
+
+                              thirtyDaysAgo.setDate(today.getDate() - 30);
+                              var cutoffdate5 = new Date(thirtyDaysAgo);
+
+                              var objectCreateDate7 = new Date(currentObject3.created);
+
+                              //Showing number of open issues by days
+                              if (objectCreateDate7 >= cutoffdate5) {
+                                  tmpArray6.push(currentObject3);
+                              }
+                          }
+
+                          //Showing all of the open changes made by our group and split into releases
+
+                          //Changes from 1 day ago made by our group combined and into releases
+
+                          for (i = 0; i < tmpArray3.length; i++) {
+                              //  console.log(responsen[i]);
+                              var currentObject3 = tmpArray3[i];
+                              var currentObjectString3 = JSON.stringify(currentObject3);
+
+                              for (var j = 0; j < accountids.length; j++) {
+                                  var accountid = accountids[j];
+
+                                  if (currentObjectString3.indexOf('"_account_id":' + accountid) >= 0) {
+                                      outputArray3.push(currentObject3);
+
+                                      var openMast1 = outputArray3.filter(function(x) {
+                                          return x.branch == 'master';
+                                      });
+
+                                      var open4011 = outputArray3.filter(function(x) {
+                                          return x.branch == productionNumber;
+                                      });
+
+                                      var open4021 = outputArray3.filter(function(x) {
+                                          return x.branch == testNumber;
+                                      });
+                                      //console.log(open4021.length);
+                                      break;
+                                  }
+
+
+                              }
+                          }
+
+                          //Changes from 7 days ago made by our group combined and into releases
+                          for (i = 0; i < tmpArray4.length; i++) {
+                              //  console.log(responsen[i]);
+                              var currentObject4 = tmpArray4[i];
+                              var currentObjectString4 = JSON.stringify(currentObject4);
+
+                              for (var j = 0; j < accountids.length; j++) {
+                                  var accountid = accountids[j];
+
+                                  if (currentObjectString4.indexOf('"_account_id":' + accountid) >= 0) {
+                                      outputArray4.push(currentObject4);
+
+                                      var openMast7 = outputArray4.filter(function(x) {
+                                          return x.branch == 'master';
+                                      });
+
+                                      var open4017 = outputArray4.filter(function(x) {
+                                          return x.branch == productionNumber;
+                                      });
+
+                                      var open4027 = outputArray4.filter(function(x) {
+                                          return x.branch == testNumber;
+                                      });
+
+                                      break;
+                                  }
+                              }
+                          }
+
+                          //Changes from 14 days ago made by our group combined and into releases
+                          for (i = 0; i < tmpArray5.length; i++) {
+                              //  console.log(responsen[i]);
+                              var currentObject5 = tmpArray5[i];
+                              var currentObjectString5 = JSON.stringify(currentObject5);
+
+                              for (var j = 0; j < accountids.length; j++) {
+                                  var accountid = accountids[j];
+
+                                  if (currentObjectString5.indexOf('"_account_id":' + accountid) >= 0) {
+                                      outputArray5.push(currentObject5);
+
+                                      var openMast14 = outputArray5.filter(function(x) {
+                                          return x.branch == 'master';
+                                      });
+
+                                      var open40114 = outputArray5.filter(function(x) {
+                                          return x.branch == productionNumber;
+                                      });
+
+                                      var open40214 = outputArray5.filter(function(x) {
+                                          return x.branch == testNumber;
+                                      });
+
+                                      break;
+                                  }
+                              }
+                          }
+
+                          //Changes from 30 days ago made by our group combined and into releases
+                          for (i = 0; i < tmpArray6.length; i++) {
+                              //  console.log(responsen[i]);
+                              var currentObject6 = tmpArray6[i];
+                              var currentObjectString6 = JSON.stringify(currentObject6);
+
+                              for (var j = 0; j < accountids.length; j++) {
+                                  var accountid = accountids[j];
+
+                                  if (currentObjectString6.indexOf('"_account_id":' + accountid) >= 0) {
+                                      outputArray6.push(currentObject6);
+
+                                      var openMast30 = outputArray6.filter(function(x) {
+                                          return x.branch == 'master';
+                                      });
+
+                                      var open40130 = outputArray6.filter(function(x) {
+                                          return x.branch == productionNumber;
+                                      });
+
+                                      var open40230 = outputArray6.filter(function(x) {
+                                          return x.branch == testNumber;
+                                      });
+
+                                      break;
+                                  }
+                              }
+                          }
+
+
+                          //Makes calls to get Gerrit changes that are Merged
+
+                          var  changes  =   {
+                              "dataType": "json",
+                              "url":   "http://localhost:3000/openchanges/",
+                              "method":   "GET"
+                          }
+
+                          $.ajax(changes).done(function(response1) {
+
+                              var test = response1.length;
+
+                              var today = new Date();
+
+                              var oneDayAgo = new Date(today);
+                              var sevenDaysAgo = new Date(today);
+                              var fourteenDaysAgo = new Date(today);
+                              var thirtyDaysAgo = new Date(today);
+
+                              var tmpArray = [];
+                              var mergeArray7 = [];
+                              var mergeArray14 = [];
+                              var mergeArray30 = [];
+                              var outputArray = [];
+                              var mergeOutputArray7 = [];
+                              var mergeOutputArray14 = [];
+                              var mergeOutputArray30 = [];
+
+                                //Showing Merged changes based from 1 day ago
+
+                              for (i = 0; i < response1.length; i++) {
+                                  //console.log(response1[i]);
+                                  var currentObject = response1[i];
+                                  var objectCreateDate = new Date(currentObject.created);
+
+
+
+                                  oneDayAgo.setDate(today.getDate() - 1);
+                                  var cutoffdate = new Date(oneDayAgo);
+
+                                  if (objectCreateDate >= cutoffdate) {
+                                      tmpArray.push(currentObject);
+
+                                  }
+
+                                 //Showing Merged changes based from 7 days ago
+
+                                  var objectCreateDate1 = new Date(currentObject.created);
+
+
+                                  sevenDaysAgo.setDate(today.getDate() - 7);
+                                  var cutoffdate1 = new Date(sevenDaysAgo);
+
+                                  if (objectCreateDate1 >= cutoffdate1) {
+                                      mergeArray7.push(currentObject);
+
+                                  }
+
+                                  //Showing Merged changes based from 14 days ago
+                                  var objectCreateDate2 = new Date(currentObject.created);
+
+
+                                  fourteenDaysAgo.setDate(today.getDate() - 14);
+                                  var cutoffdate2 = new Date(fourteenDaysAgo);
+
+                                  if (objectCreateDate2 >= cutoffdate2) {
+                                      mergeArray14.push(currentObject);
+
+                                  }
+
+                                  //Showing Merged changes based from 7 days ago
+                                  var objectCreateDate3 = new Date(currentObject.created);
+
+
+                                  thirtyDaysAgo.setDate(today.getDate() - 30);
+                                  var cutoffdate3 = new Date(thirtyDaysAgo);
+
+                                  if (objectCreateDate3 >= cutoffdate3) {
+                                      mergeArray30.push(currentObject);
+
+                                  }
+                              }
+
+                                //Showing all of the Merged changes made by our group and split into releases
+
+                                //Changes from 1 day ago made by our group combined and into releases
+
+                              for (i = 0; i < tmpArray.length; i++) {
+                                  //  console.log(response1[i]);
+                                  var currentObject = tmpArray[i];
+                                  var currentObjectString = JSON.stringify(currentObject);
+
+                                  for (var j = 0; j < accountids.length; j++) {
+                                      var accountid = accountids[j];
+
+                                      if (currentObjectString.indexOf('"_account_id":' + accountid) >= 0) {
+                                          outputArray.push(currentObject);
+
+                                          var mergeMaster1 = outputArray.filter(function(x) {
+                                              return x.branch == 'master';
+                                          });
+
+                                          var merge4011 = outputArray.filter(function(x) {
+                                              return x.branch == productionNumber;
+                                          });
+
+                                          var merge4021 = outputArray.filter(function(x) {
+                                              return x.branch == testNumber;
+                                          });
+
+                                          break;
+                                      }
+
+                                  }
+                              }
+                              //Changes from 7 days ago made by our group combined and into releases
+
+                              for (i = 0; i < mergeArray7.length; i++) {
+                                  //  console.log(response1[i]);
+                                  var currentObject1 = mergeArray7[i];
+                                  var currentObjectString1 = JSON.stringify(currentObject1);
+
+                                  for (var j = 0; j < accountids.length; j++) {
+                                      var accountid = accountids[j];
+
+                                      if (currentObjectString1.indexOf('"_account_id":' + accountid) >= 0) {
+                                          mergeOutputArray7.push(currentObject1);
+
+                                          var mergeMaster7 = mergeOutputArray7.filter(function(x) {
+                                              return x.branch == 'master';
+                                          });
+
+                                          var merge4017 = mergeOutputArray7.filter(function(x) {
+                                              return x.branch == productionNumber;
+                                          });
+
+                                          var merge4027 = mergeOutputArray7.filter(function(x) {
+                                              return x.branch == testNumber;
+                                          });
+
+                                          break;
+                                      }
+
+                                  }
+                              }
+
+                              //Changes from 14 day ago made by our group combined and into releases
+
+                              for (i = 0; i < mergeArray14.length; i++) {
+
+                                  var currentObject2 = mergeArray14[i];
+                                  var currentObjectString2 = JSON.stringify(currentObject2);
+
+                                  for (var j = 0; j < accountids.length; j++) {
+                                      var accountid = accountids[j];
+
+                                      if (currentObjectString2.indexOf('"_account_id":' + accountid) >= 0) {
+                                          mergeOutputArray14.push(currentObject2);
+
+                                          var mergeMaster14 = mergeOutputArray14.filter(function(x) {
+                                              return x.branch == 'master';
+                                          });
+
+                                          var merge40114 = mergeOutputArray14.filter(function(x) {
+                                              return x.branch == productionNumber;
+                                          });
+
+                                          var merge40214 = mergeOutputArray14.filter(function(x) {
+                                              return x.branch == testNumber;
+                                          });
+
+                                          break;
+                                      }
+
+                                  }
+                              }
+                              //Changes from 30 day ago made by our group combined and into releases
+
+                              for (i = 0; i < mergeArray30.length; i++) {
+                                  //  console.log(response1[i]);
+                                  var currentObject3 = mergeArray30[i];
+                                  var currentObjectString3 = JSON.stringify(currentObject3);
+
+                                  for (var j = 0; j < accountids.length; j++) {
+                                      var accountid = accountids[j];
+
+                                      if (currentObjectString3.indexOf('"_account_id":' + accountid) >= 0) {
+                                          mergeOutputArray30.push(currentObject3);
+
+                                          var mergeMaster30 = mergeOutputArray30.filter(function(x) {
+                                              return x.branch == 'master';
+                                          });
+
+                                          var merge40130 = mergeOutputArray30.filter(function(x) {
+                                              return x.branch == productionNumber;
+                                          });
+
+                                          var merge40230 = mergeOutputArray30.filter(function(x) {
+                                              return x.branch == testNumber;
+                                          });
+
+                                          break;
+                                      }
+
+                                  }
+                              }
+                              //Makes calls to get Gerrit changes that are Merged
+
+                              var  abandoned  =   {
+                                  "dataType": "json",
+                                  "url":   "http://localhost:3000/pages/abandoned/",
+                                  "method":   "GET"
+                              }
+
+
+                              $.ajax(abandoned).done(function(responseab) {
+                                  //console.log(JSON.stringify(responseab));
+
+                                  var time2 = responseab.length;
+                                  var today3 = new Date();
+
+                                  var oneDayAgo3 = new Date(today3);
+                                  var sevenDaysAgo3 = new Date(today3);
+                                  var fourteenDaysAgo3 = new Date(today3);
+                                  var thirtyDaysAgo3 = new Date(today3);
+
+                                  var tmpArray2 = [];
+                                  var abanArray7 = [];
+                                  var abanArray14 = [];
+                                  var abanArray30 = [];
+
+                                  abanOutputArray1 = [];
+                                  abanOuputArray7 = [];
+                                  abanOuputArray14 = [];
+                                  abanOuputArray30 = [];
+
+                                  //Showing Abandoned changes based from 1 day ago
+
+                                  for (i = 0; i < responseab.length; i++) {
+                                      //console.log(responseab[i]);
+                                      var currentObject9 = responseab[i];
+                                      var objectCreateDate2 = new Date(currentObject9.created);
+
+                                      oneDayAgo3.setDate(today3.getDate() - 1);
+                                      var cutoffdate3 = new Date(oneDayAgo3);
+
+                                      if (objectCreateDate2 >= cutoffdate3) {
+                                          tmpArray2.push(currentObject9);
+
+                                      }
+                                      //Showing Abandoned changes based from 7 days ago
+                                      var objectCreateDate3 = new Date(currentObject9.created);
+
+
+                                      sevenDaysAgo3.setDate(today3.getDate() - 7);
+                                      var cutoffdate4 = new Date(sevenDaysAgo3);
+
+                                      if (objectCreateDate3 >= cutoffdate4) {
+                                          abanArray7.push(currentObject9);
+
+                                      }
+                                      //Showing Abandoned changes based from 14 days ago
+                                      var objectCreateDate4 = new Date(currentObject9.created);
+
+
+                                      fourteenDaysAgo3.setDate(today3.getDate() - 14);
+                                      var cutoffdate5 = new Date(fourteenDaysAgo3);
+
+                                      if (objectCreateDate4 >= cutoffdate5) {
+                                          abanArray14.push(currentObject9);
+
+                                      }
+                                      //Showing Abandoned changes based from 30 days ago
+                                      var objectCreateDate5 = new Date(currentObject9.created);
+
+
+                                      thirtyDaysAgo3.setDate(today3.getDate() - 30);
+                                      var cutoffdate6 = new Date(thirtyDaysAgo3);
+
+
+                                      if (objectCreateDate5 >= cutoffdate6) {
+                                          abanArray30.push(currentObject9);
+
+                                      }
+                                  }
+
+
+
+                                  //Showing all of the Abandoned changes made by our group and split into releases
+
+                                  //Changes from 1 day ago made by our group combined and into releases
+
+                                  for (i = 0; i < tmpArray2.length; i++) {
+                                    //  console.log(responseab[i]);
+                                    var currentObject10 = tmpArray2[i];
+                                    var currentObjectString2 = JSON.stringify(currentObject10);
+
+                                    for (var j = 0; j < accountids.length; j++) {
+                                        var accountid = accountids[j];
+
+                                        if (currentObjectString2.indexOf('"_account_id":' + accountid) >= 0) {
+                                            abanOutputArray1.push(currentObject10);
+                                            //console.log(abanOutputArray1.length);
+                                            var abanMaster1 = abanOutputArray1.filter(function(x) {
+                                                return x.branch == 'master';
+                                            });
+
+                                              //console.log(abanMaster1.length);
+                                              //release2.length ========== number of master branches
+                                              var aban4011 = abanOutputArray1.filter(function(x) {
+                                                  return x.branch == productionNumber;
+                                              });
+                                              //console.log(aban4011.length);
+                                              var aban4021 = abanOutputArray1.filter(function(x) {
+                                                  return x.branch == testNumber;
+                                              });
+                                              //console.log(aban4011.length);
+                                              break;
+                                          }
+
+                                      }
+                                  }
+
+                                  //Changes from 7 days ago made by our group combined and into releases
+                                  for (i = 0; i < abanArray7.length; i++) {
+                                      //  console.log(responseab[i]);
+                                      var currentObject11 = abanArray7[i];
+                                      var currentObjectString3 = JSON.stringify(currentObject11);
+
+                                      for (var j = 0; j < accountids.length; j++) {
+                                          var accountid = accountids[j];
+
+                                          if (currentObjectString3.indexOf('"_account_id":' + accountid) >= 0) {
+                                              abanOuputArray7.push(currentObject11);
+
+                                              var abanMaster7 = abanOuputArray7.filter(function(x) {
+                                                  return x.branch == 'master';
+                                              });
+
+                                              var aban4017 = abanOuputArray7.filter(function(x) {
+                                                  return x.branch == productionNumber;
+                                              });
+
+                                              var aban4027 = abanOuputArray7.filter(function(x) {
+                                                  return x.branch == testNumber;
+                                              });
+
+                                              break;
+                                          }
+
+                                      }
+                                  }
+
+                                  //Changes from 14 days ago made by our group combined and into releases
+                                  for (i = 0; i < abanArray14.length; i++) {
+
+                                      var currentObject12 = abanArray14[i];
+                                      var currentObjectString4 = JSON.stringify(currentObject12);
+
+                                      for (var j = 0; j < accountids.length; j++) {
+                                          var accountid = accountids[j];
+
+                                          if (currentObjectString4.indexOf('"_account_id":' + accountid) >= 0) {
+                                              abanOuputArray14.push(currentObject12);
+
+                                              var abanMaster14 = abanOuputArray14.filter(function(x) {
+                                                  return x.branch == 'master';
+                                              });
+
+                                              var aban40114 = abanOuputArray14.filter(function(x) {
+                                                  return x.branch == productionNumber;
+                                              });
+
+                                              var aban40214 = abanOuputArray14.filter(function(x) {
+                                                  return x.branch == testNumber;
+                                              });
+
+                                              break;
+                                          }
+
+                                      }
+                                  }
+
+                                  //Changes from 30 days ago made by our group combined and into releases
+                                  for (i = 0; i < abanArray30.length; i++) {
+
+                                      var currentObject13 = abanArray30[i];
+                                      var currentObjectString5 = JSON.stringify(currentObject13);
+
+                                      for (var j = 0; j < accountids.length; j++) {
+                                          var accountid = accountids[j];
+
+                                          if (currentObjectString5.indexOf('"_account_id":' + accountid) >= 0) {
+                                              abanOuputArray30.push(currentObject13);
+
+
+                                              var abanMaster30 = abanOuputArray30.filter(function(x) {
+                                                  return x.branch == 'master';
+                                              });
+
+                                              var aban40130 = abanOuputArray30.filter(function(x) {
+                                                  return x.branch == productionNumber;
+                                              });
+
+                                              var aban40230 = abanOuputArray30.filter(function(x) {
+                                                  return x.branch == testNumber;
+                                              });
+
+                                              break;
+                                          }
+
+                                      }
+                                  }
+
+                                  // Putting all of the above data into Charts
+
+                                  oneDay();
+
+                                  function oneDay() {
+                                      $('#DivChartContainer').empty();
+                                      $('#DivChartContainer').append('<canvas id="myChart"></canvas>');
+
+                                      //Toggle through both functions
+                                      var fn3 = (function() {
+                                          var first = true;
+                                          return function() {
+                                              first ? releases() : closeButton();
+                                              first = !first;
+                                          }
+
+                                      })();
+                                      var button = document.getElementById('btn');
+                                      button.addEventListener('click', fn3)
+                                      //**************************************************************************CHART CODE WITH TWO FUNCTIONS*****************************************************
+                                      var ctx = document.getElementById('myChart').getContext('2d');
+                                      //chart
+                                      closeButton();
+
+                                      function closeButton() {
+                                          if (releases) {
+                                              destroyAllCharts();
+                                          }
+                                          chart = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                      label: "Combined",
+                                                      backgroundColor: 'rgb(0, 204, 204)',
+                                                      borderColor: 'rgb(0, 204, 204)',
+                                                      data: [outputArray.length, outputArray3.length, abanOutputArray1.length],
+
+                                                  }]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 40,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                      //console.log(outputArray);
+                                      var releases = function updateButton() {
+                                          destroyAllCharts();
+                                          if (chart) {
+                                              destroyAllCharts();
+                                          }
+                                          chart2 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                          label: "Develop",
+                                                          backgroundColor: 'rgb(255, 51, 51)',
+                                                          borderColor: 'rgb(255, 51, 51)',
+                                                          data: [mergeMaster1.length, openMast1.length, 0],
+
+                                                      },
+                                                      {
+                                                          label: "test",
+                                                          backgroundColor: 'rgb(102, 102, 255)',
+                                                          borderColor: 'rgb(102, 102, 255)',
+                                                          data: [merge4021.length, open4021.length, 0],
+                                                      },
+                                                      {
+                                                          label: "production",
+                                                          backgroundColor: 'rgb(0, 204, 0)',
+                                                          borderColor: 'rgb(0, 204, 0)',
+                                                          data: [merge4011.length, open4011.length, 0],
+                                                      }
+                                                  ]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 40,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                  }
+
+                                  function sevenDay() {
+
+                                      //Toggle through both functions
+                                      var fn4 = (function() {
+                                          var first = true;
+                                          return function() {
+                                              first ? releases2() : closeButton2();
+                                              first = !first;
+                                          }
+
+                                      })();
+                                      var button = document.getElementById('btn');
+                                      button.addEventListener('click', fn4)
+
+                                      $('#DivChartContainer').empty();
+                                      $('#DivChartContainer').append('<canvas id="sevenChart"></canvas>');
+                                      //**************************************************************************CHART CODE WITH TWO FUNCTIONS*****************************************************
+                                      var ctx = document.getElementById('sevenChart').getContext('2d');
+                                      //chart
+                                      closeButton2();
+
+                                      function closeButton2() {
+                                          if (releases2) destroyAllCharts();
+                                          chart3 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                      label: "Combined",
+                                                      backgroundColor: 'rgb(0, 204, 204)',
+                                                      borderColor: 'rgb(0, 204, 204)',
+                                                      data: [mergeOutputArray7.length, outputArray4.length, abanOuputArray7.length],
+
+                                                  }]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 300,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                      //console.log(outputArray);
+                                      var releases2 = function updateButton() {
+                                          if (chart3) destroyAllCharts();
+                                          chart4 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                          label: "Develop",
+                                                          backgroundColor: 'rgb(255, 51, 51)',
+                                                          borderColor: 'rgb(255, 51, 51)',
+                                                          data: [mergeMaster7.length, openMast7.length, abanMaster7.length],
+
+                                                      },
+                                                      {
+                                                          label: "Test",
+                                                          backgroundColor: 'rgb(102, 102, 255)',
+                                                          borderColor: 'rgb(102, 102, 255)',
+                                                          data: [merge4027.length, open4027.length, aban4027.length],
+                                                      },
+                                                      {
+                                                          label: "Production",
+                                                          backgroundColor: 'rgb(0, 204, 0)',
+                                                          borderColor: 'rgb(0, 204, 0)',
+                                                          data: [merge4017.length, open4017.length, aban4017.length],
+                                                      }
+                                                  ]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 300,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                  }
+
+                                  function fourteenDay() {
+
+                                      //Toggle through both functions
+                                      var fn5 = (function() {
+                                          var first = true;
+                                          return function() {
+                                              first ? releases3() : closeButton3();
+                                              first = !first;
+                                          }
+
+                                      })();
+                                      var button = document.getElementById('btn');
+
+                                      button.addEventListener('click', fn5)
+
+                                      $('#DivChartContainer').empty();
+                                      $('#DivChartContainer').append('<canvas id="fourteenChart"></canvas>');
+                                      //**************************************************************************CHART CODE WITH TWO FUNCTIONS*****************************************************
+                                      var ctx = document.getElementById('fourteenChart').getContext('2d');
+                                      //chart
+                                      closeButton3();
+
+                                      function closeButton3() {
+                                          if (releases3) destroyAllCharts();
+                                          chart5 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                      label: "Combined",
+                                                      backgroundColor: 'rgb(0, 204, 204)',
+                                                      borderColor: 'rgb(0, 204, 204)',
+                                                      data: [mergeOutputArray14.length, outputArray5.length, abanOuputArray14.length],
+
+                                                  }]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 400,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                      //console.log(outputArray);
+                                      var releases3 = function updateButton() {
+                                          if (chart5) destroyAllCharts();
+                                          chart6 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                          label: "Develop",
+                                                          backgroundColor: 'rgb(255, 51, 51)',
+                                                          borderColor: 'rgb(255, 51, 51)',
+                                                          data: [mergeMaster14.length, openMast14.length, abanMaster14.length],
+
+                                                      },
+                                                      {
+                                                          label: "Test",
+                                                          backgroundColor: 'rgb(102, 102, 255)',
+                                                          borderColor: 'rgb(102, 102, 255)',
+                                                          data: [merge40214.length, open40214.length, aban40214.length],
+                                                      },
+                                                      {
+                                                          label: "Production",
+                                                          backgroundColor: 'rgb(0, 204, 0)',
+                                                          borderColor: 'rgb(0, 204, 0)',
+                                                          data: [merge40114.length, open40114.length, aban40114.length],
+                                                      }
+                                                  ]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 400,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                  }
+
+                                  function thirtyDay() {
+
+                                      //Toggle through both functions
+                                      var fn6 = (function() {
+                                          var first = true;
+                                          return function() {
+                                              first ? releases4() : closeButton4();
+                                              first = !first;
+                                          }
+
+                                      })();
+                                      var button = document.getElementById('btn');
+
+                                      button.addEventListener('click', fn6)
+
+                                      $('#DivChartContainer').empty();
+                                      $('#DivChartContainer').append('<canvas id="thirtyChart"></canvas>');
+                                      //**************************************************************************CHART CODE WITH TWO FUNCTIONS*****************************************************
+                                      var ctx = document.getElementById('thirtyChart').getContext('2d');
+                                      //chart
+                                      closeButton4();
+
+                                      function closeButton4() {
+                                          if (releases4) destroyAllCharts();
+                                          chart6 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                      label: "Combined",
+                                                      backgroundColor: 'rgb(0, 204, 204)',
+                                                      borderColor: 'rgb(0, 204, 204)',
+                                                      data: [mergeOutputArray30.length, outputArray6.length, abanOuputArray30.length],
+
+                                                  }]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 400,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                      //console.log(outputArray);
+                                      var releases4 = function updateButton() {
+                                          if (chart6) destroyAllCharts();
+                                          chart7 = new Chart(ctx, {
+                                              // The type of chart we want to create
+                                              type: 'bar',
+
+                                              // The data for our dataset
+                                              data: {
+                                                  labels: ["Merged", "Unmerged", "Abandoned"],
+                                                  datasets: [{
+                                                          label: "Develop",
+                                                          backgroundColor: 'rgb(255, 51, 51)',
+                                                          borderColor: 'rgb(255, 51, 51)',
+                                                          data: [mergeMaster30.length, openMast30.length, abanMaster30.length],
+
+                                                      },
+                                                      {
+                                                          label: "Test",
+                                                          backgroundColor: 'rgb(102, 102, 255)',
+                                                          borderColor: 'rgb(102, 102, 255)',
+                                                          data: [merge40230.length, open40230.length, aban40230.length],
+                                                      },
+                                                      {
+                                                          label: "Production",
+                                                          backgroundColor: 'rgb(0, 204, 0)',
+                                                          borderColor: 'rgb(0, 204, 0)',
+                                                          data: [merge40130.length, open40130.length, aban40130.length],
+                                                      }
+                                                  ]
+                                              },
+                                              options: {
+                                                  scales: {
+                                                      yAxes: [{
+                                                          ticks: {
+                                                              max: 400,
+                                                              min: 0
+                                                          }
+                                                      }]
+                                                  }
+                                              }
+                                          });
+                                      }
+                                  }
+                                  //})
+                                  //api closures start
+                                  var menu = document.getElementById("dropdown");
+                                  menu.addEventListener("change", generateData);
+
+                                  function generateData(event) {
+                                      if (menu.value == '1') {
+                                          oneDay();
+                                      } else if (menu.value == '7') {
+                                          sevenDay();
+                                      } else if (menu.value == '14') {
+                                          fourteenDay();
+                                      } else if (menu.value == '30') {
+                                          thirtyDay();
+                                      }
+                                  }
+
+                                  function destroyAllCharts() {
+                                      if (typeof chart !== "undefined") {
+                                          chart.destroy();
+                                      }
+                                      if (typeof chart2 !== "undefined") {
+                                          chart2.destroy();
+                                      }
+                                      if (typeof chart3 !== "undefined") {
+                                          chart3.destroy();
+                                      }
+                                      if (typeof chart4 !== "undefined") {
+                                          chart4.destroy();
+                                      }
+                                      if (typeof chart5 !== "undefined") {
+                                          chart5.destroy();
+                                      }
+                                      if (typeof chart6 !== "undefined") {
+                                          chart6.destroy();
+                                      }
+                                      if (typeof chart7 !== "undefined") {
+                                          chart7.destroy();
+                                      }
+                                      if (typeof chart8 !== "undefined") {
+                                          chart8.destroy();
+                                      }
+
+                                  }
+
+
+
+                              });
+
+                          });
+
+                      });
+
+                  });
+
+              });
+
+          });
+
+      });
+
+        </script>
+        ]]>
+    </Content>
+</Module>
